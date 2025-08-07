@@ -1,0 +1,48 @@
+# Install required libraries
+!pip install --quiet requests textblob pandas
+
+from textblob import TextBlob
+import requests
+import pandas as pd
+
+# Enter your bearer token here
+BEARER_TOKEN = "XXXXXXXXXXXXXXXXXXXXXXXXXXX"
+
+# Function to search tweets using Twitter API v2
+def search_tweets(query, max_results=50):
+    headers = {
+        "Authorization": f"Bearer {BEARER_TOKEN}"
+    }
+    search_url = "https://api.twitter.com/2/tweets/search/recent"
+    params = {
+        'query': query,
+        'max_results': min(max_results, 100),  # Twitter API limit is 100 per request
+        'tweet.fields': 'created_at,lang,text,author_id'
+    }
+
+    response = requests.get(search_url, headers=headers, params=params)
+    if response.status_code != 200:
+        raise Exception(f"Request failed: {response.status_code}\n{response.text}")
+    
+    tweets = response.json().get("data", [])
+    return pd.DataFrame(tweets)
+
+# Function to perform sentiment analysis
+def analyze_sentiment(text):
+    blob = TextBlob(text)
+    polarity = blob.sentiment.polarity
+    if polarity > 0:
+        return 'Positive'
+    elif polarity < 0:
+        return 'Negative'
+    else:
+        return 'Neutral'
+
+# Run this cell to perform the analysis
+query = input("🔍 Enter keyword or topic: ")
+df = search_tweets(query + " lang:en", max_results=100)
+df['sentiment'] = df['text'].apply(analyze_sentiment)
+
+# Show results
+print(df[['text', 'sentiment']].head(10))
+df['sentiment'].value_counts().plot(kind='bar', title='Sentiment Distribution')
